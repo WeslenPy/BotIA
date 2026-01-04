@@ -50,6 +50,8 @@ func (ch *CommandHandler) ProcessCommand(ctx context.Context, command string, ar
 		return ch.handlePiadaCommand(ctx, evt, bot)
 	case "cantada":
 		return ch.handleCantadaCommand(ctx, args, evt, bot)
+	case "historia", "história":
+		return ch.handleHistoriaCommand(ctx, args, evt, bot)
 	case "help", "ajuda":
 		return ch.handleHelpCommand(ctx, evt, bot)
 	default:
@@ -346,6 +348,100 @@ Crie a cantada agora:`
 	return nil
 }
 
+// handleHistoriaCommand processa o comando !historia
+func (ch *CommandHandler) handleHistoriaCommand(ctx context.Context, args []string, evt *events.Message, bot *BotClient) error {
+	// Verificar se o cliente Gemini está configurado
+	if bot.geminiClient == nil {
+		errorMsg := "❌ Gemini não está configurado. Configure a API key para usar este comando."
+		msg := &waProto.Message{
+			Conversation: &errorMsg,
+		}
+		_, err := bot.WAClient.SendMessage(ctx, evt.Info.Chat, msg)
+		return err
+	}
+
+	// Extrair tipo da história dos argumentos
+	historiaTipo := "aventura" // Tipo padrão
+	if len(args) > 0 {
+		historiaTipo = strings.ToLower(strings.Join(args, " "))
+	}
+
+	// Enviar evento de "digitando"
+	errTyping := bot.WAClient.SendChatPresence(ctx, evt.Info.Chat, types.ChatPresenceComposing, types.ChatPresenceMediaText)
+	if errTyping != nil {
+		log.Warn().Err(errTyping).Msg("Erro ao enviar status de digitando")
+	}
+
+	// Criar prompt para gerar história
+	prompt := fmt.Sprintf(`Você é um contador de histórias criativo e envolvente em português brasileiro.
+
+Crie uma história do gênero: %s
+
+Requisitos:
+- A história deve ser do gênero %s
+- Deve ser envolvente e interessante
+- Deve ter começo, meio e fim
+- Use linguagem natural e fluida
+- Seja criativo e original
+- A história deve ter entre 5 e 10 parágrafos
+- NÃO use emojis
+- Responda APENAS com a história, sem explicações ou comentários adicionais
+- Se for terror, mantenha o suspense mas seja adequado para todos os públicos
+- Se for comédia, seja engraçada mas respeitosa
+- Se for romance, seja romântica mas discreta
+- Se for aventura, seja emocionante e dinâmica
+- Se for ficção científica, seja criativa e interessante
+
+Crie a história agora:`, historiaTipo, historiaTipo)
+
+	log.Info().
+		Str("tipo", historiaTipo).
+		Msg("Gerando história com Gemini")
+
+	// Gerar história usando a API do Gemini
+	historia, err := bot.geminiClient.GenerateContent(ctx, prompt)
+	if err != nil {
+		log.Error().Err(err).Msg("Erro ao gerar história com Gemini")
+
+		// Encerrar status de digitando
+		bot.WAClient.SendChatPresence(ctx, evt.Info.Chat, types.ChatPresencePaused, types.ChatPresenceMediaText)
+
+		// Informar erro ao usuário
+		errorMsg := "❌ Erro ao gerar história. Tente novamente mais tarde."
+		msg := &waProto.Message{
+			Conversation: &errorMsg,
+		}
+		_, err := bot.WAClient.SendMessage(ctx, evt.Info.Chat, msg)
+		return err
+	}
+
+	// Limitar tamanho da história (histórias podem ser mais longas)
+	if len(historia) > 3000 {
+		historia = historia[:3000] + "\n\n... (história truncada)"
+	}
+
+	// Encerrar status de digitando
+	bot.WAClient.SendChatPresence(ctx, evt.Info.Chat, types.ChatPresencePaused, types.ChatPresenceMediaText)
+
+	// Enviar história gerada
+	historiaMsg := fmt.Sprintf("📖 *História de %s:*\n\n%s", strings.Title(historiaTipo), historia)
+	msg := &waProto.Message{
+		Conversation: &historiaMsg,
+	}
+	_, err = bot.WAClient.SendMessage(ctx, evt.Info.Chat, msg)
+	if err != nil {
+		log.Error().Err(err).Msg("Erro ao enviar história")
+		return err
+	}
+
+	log.Info().
+		Int("length", len(historia)).
+		Str("tipo", historiaTipo).
+		Msg("História enviada com sucesso")
+
+	return nil
+}
+
 // extractMentionInfo extrai informações de menção de uma mensagem
 func (ch *CommandHandler) extractMentionInfo(mentionText string, evt *events.Message) (string, string) {
 	// Verificar se há informações de contexto da mensagem
@@ -381,6 +477,7 @@ func (ch *CommandHandler) handleHelpCommand(ctx context.Context, evt *events.Mes
 • *!abraco @usuario* - Dar um abraço virtual em alguém com GIF
 • *!piada* - Contar uma piada gerada por IA
 • *!cantada @usuario* - Gerar uma cantada para alguém usando IA
+• *!historia [tipo]* - Gerar uma história usando IA (ex: !historia terror, !historia comedia)
 • *!explique* - Explicar uma mensagem marcada (marque uma mensagem e digite !explique)
 • *!help* ou *!ajuda* - Mostrar esta lista de comandos
 
@@ -391,6 +488,8 @@ _Exemplos:_
 • !abraco @amigo
 • !piada
 • !cantada @amigo
+• !historia terror
+• !historia comedia
 • Marque uma mensagem e digite: !explique
 • !help`
 
@@ -969,9 +1068,9 @@ func (gmp *GroupMessageProcessor) processWithAI(ctx context.Context, evt *events
 		return err
 	}
 
-	// Limitar tamanho da resposta
-	if len(response) > 2000 { // Respostas menores em grupos
-		response = response[:2000] + "\n\n... (resposta truncada)"
+	// Limitar tamanho da resposta (respostas curtas e diretas)
+	if len(response) > 500 {
+		response = response[:500] + "..."
 	}
 
 	// Salvar resposta da IA
@@ -1011,55 +1110,48 @@ func (gmp *GroupMessageProcessor) processWithAI(ctx context.Context, evt *events
 func (gmp *GroupMessageProcessor) createGroupPrompt(rules *GroupRules, history []ChatMessage, userMessage, userName string) string {
 	systemPrompt := rules.CustomPrompt
 	if systemPrompt == "" {
-		// Prompt padrão para grupos - descontraído e interativo
-		systemPrompt = `Você é o DuckerIA, o assistente virtual da Hyper Ducker participando de um grupo de WhatsApp.
+		// Prompt padrão para grupos - direto, curto e natural
+		systemPrompt = `Você é o DuckerIA, participando de um grupo de WhatsApp.
 
-## Sua Personalidade em Grupos
-- Você é descontraído, animado e interativo com os participantes
-- Gosta de conversar e se envolver nas discussões do grupo
-- Mantém um tom amigável, leve e acessível
-- Você é parte do grupo, não apenas um assistente distante
-- Use expressões naturais e coloquiais quando apropriado
+## Sua Personalidade
+- Você é descontraído, amigável e natural
+- Mantém um tom leve e acessível
+- Você é parte do grupo, não apenas um assistente
+- Use linguagem natural e coloquial
 
-## Como Interagir com o Grupo
-- Seja participativo e engajado nas conversas
-- Faça perguntas de volta para manter a interação
-- Compartilhe conhecimento de forma descontraída
-- Quando alguém mencionar você ou fizer uma pergunta, responda de forma calorosa
-- Seja útil mas também divertido - grupos são para interação social
-- Reconheça outros participantes pelo nome quando relevante
-- Adicione comentários relevantes e interessantes à conversa
+## Como Responder
+- Seja DIRETO e OBJETIVO - vá direto ao ponto
+- Respostas CURTAS (máximo 3-4 frases, idealmente 1-2)
+- Responda apenas o que foi perguntado, sem enrolação
+- Não force assuntos ou tente mudar o tema da conversa
+- Se alguém perguntar sobre tecnologia, responda. Se não perguntar, não mencione
+- Não fale sobre desenvolvimento, apps ou tecnologia a menos que seja o assunto da conversa
+- Seja natural e participe da conversa como qualquer membro do grupo
 
 ## Estilo de Comunicação
-- Respostas curtas e diretas (máximo 2000 caracteres)
+- Respostas MUITO curtas e diretas (máximo 100 caracteres)
 - Linguagem natural e conversacional
 - Pode usar expressões maranhenses ocasionalmente (visse, rapaz/moça, tranquilo, beleza)
-- Seja empático e mostre interesse genuíno nas conversas
-- Quando apropriado, faça piadas leves ou comentários descontraídos
-- NÃO use emojis (mas pode mencionar sentimentos de forma textual)
-
-## Sobre a Hyper Ducker
-- Empresa de tecnologia do Maranhão
-- Especializada em desenvolvimento de aplicativos web
-- Você representa a empresa mas de forma descontraída em grupos
-- Pode falar sobre tecnologia, desenvolvimento, apps, etc.
-- No momento não estão comercializando, apenas conversando
+- Seja empático mas objetivo
+- Quando apropriado, faça comentários leves e descontraídos
+- NÃO use emojis
 
 ## Regras Importantes
-- Seja respeitoso com todos os membros
-- Não seja muito formal ou robótico
-- Mantenha a conversa fluindo naturalmente
-- Se não souber algo, seja honesto e descontraído sobre isso
-- Participe ativamente, não apenas responda quando perguntado
+- Seja respeitoso com todos
+- Não seja formal ou robótico
+- NÃO force assuntos de tecnologia
+- NÃO tente vender ou promover nada
+- Se não souber algo, seja honesto e direto
+- Responda de forma natural, como se fosse um amigo no grupo
 
 ## Contexto da Conversa
-A conversa atual do grupo está abaixo. Use esse contexto para entender o que está acontecendo e responder de forma relevante e interativa:`
+A conversa atual do grupo está abaixo. Use apenas para entender o contexto, mas responda de forma DIRETA e CURTA:`
 	}
 
 	// Formatar histórico do grupo
 	conversationHistory := FormatConversationHistory(history)
 
-	return fmt.Sprintf("%s\n\n%s\n\n**%s:** %s\n\nResponda de forma descontraída, interativa e engajada, considerando o contexto da conversa do grupo. Seja natural e participe da discussão!",
+	return fmt.Sprintf("%s\n\n%s\n\n**%s:** %s\n\nResponda de forma DIRETA, CURTA e NATURAL. Vá direto ao ponto, sem enrolação. Não force assuntos de tecnologia.",
 		systemPrompt, conversationHistory, userName, userMessage)
 }
 

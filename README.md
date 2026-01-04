@@ -104,6 +104,7 @@ O bot inclui um sistema de comandos especiais para grupos, iniciado com `!`:
 - **!abraco @usuario** - Dar um abraço virtual em alguém com GIF aleatório
 - **!piada** - Contar uma piada gerada por IA (requer Gemini configurado, evita repetições)
 - **!cantada @usuario** - Gerar uma cantada para alguém usando IA (requer Gemini configurado)
+- **!historia [tipo]** - Gerar uma história usando IA (ex: !historia terror, !historia comedia) (requer Gemini configurado)
 - **!explique** - Explicar uma mensagem marcada (marque uma mensagem e digite !explique)
 - **!help** ou **!ajuda** - Mostrar lista de comandos disponíveis
 
@@ -116,6 +117,8 @@ O bot inclui um sistema de comandos especiais para grupos, iniciado com `!`:
 !abraco @amigo      # Dar um abraço no @amigo
 !piada              # Contar uma piada gerada por IA
 !cantada @amigo     # Gerar uma cantada para @amigo
+!historia terror    # Gerar uma história de terror
+!historia comedia   # Gerar uma história de comédia
 !explique           # Marque uma mensagem e digite !explique
 !help              # Ver lista de comandos
 ```
@@ -137,6 +140,14 @@ Bot: 😄 *Piada:*
 João: !cantada @Maria
 Bot: 💕 *Cantada para @Maria:*
      [Cantada criativa gerada pela IA do Gemini]
+
+João: !historia terror
+Bot: 📖 *História de Terror:*
+     [História de terror gerada pela IA do Gemini]
+
+João: !historia comedia
+Bot: 📖 *História de Comedia:*
+     [História de comédia gerada pela IA do Gemini]
 
 Maria: "A implementação do algoritmo de busca binária otimiza a complexidade temporal"
 João: [Marca a mensagem] !explique
@@ -179,28 +190,29 @@ Bot: 🤖 [Resposta gerada pela IA do Gemini]
 - O bot detecta automaticamente e responde usando a IA do Gemini
 
 #### Prompt Exclusivo para Grupos
-- ✅ **Descontraído e interativo** - Tom amigável e participativo
-- ✅ **Engajado nas conversas** - Faz perguntas e participa ativamente
+- ✅ **Direto e objetivo** - Respostas curtas e diretas ao ponto
+- ✅ **Natural e descontraído** - Tom amigável mas sem enrolação
 - ✅ **Linguagem natural** - Conversacional e acessível
 - ✅ **Expressões maranhenses** - Usa ocasionalmente (visse, rapaz/moça, tranquilo, beleza)
 - ✅ **Contexto do grupo** - Considera histórico de mensagens anteriores
-- ✅ **Personalidade própria** - Não é apenas um assistente, é parte do grupo
+- ✅ **Sem forçar tecnologia** - Não menciona tecnologia a menos que seja o assunto
 
 **Características do prompt:**
-- Respostas curtas e diretas (máximo 2000 caracteres)
-- Participa ativamente das discussões
-- Reconhece participantes pelo nome quando relevante
-- Faz comentários relevantes e interessantes
-- Mantém tom leve e descontraído
-- Não usa emojis (mas pode mencionar sentimentos textualmente)
+- Respostas MUITO curtas e diretas (máximo 500 caracteres, idealmente 1-2 frases)
+- Vai direto ao ponto, sem enrolação
+- Não força assuntos de tecnologia
+- Não tenta mudar o tema da conversa
+- Responde apenas o que foi perguntado
+- Mantém tom leve e natural
+- Não usa emojis
 
 **Exemplo de interação:**
 ```
 João: @DuckerIA qual a melhor linguagem para iniciantes?
-Bot: 🤖 Para iniciantes, recomendo Python, rapaz! É simples, tem uma sintaxe clara e uma comunidade enorme. Você já tem alguma experiência com programação ou está começando do zero?
+Bot: 🤖 Python é ideal para iniciantes, rapaz. É simples e tem uma comunidade grande.
 
-Maria: Estou começando do zero
-Bot: 🤖 Perfeito! Python é ideal então. Quer que eu te ajude a montar um plano de estudos? Posso sugerir alguns recursos legais.
+Maria: O que você acha do tempo hoje?
+Bot: 🤖 Tá quente demais, visse! Melhor ficar na sombra.
 ```
 
 #### Comando !explique
@@ -249,6 +261,42 @@ Bot: 💕 *Cantada para @Maria:*
 Maria: !cantada @João
 Bot: 💕 *Cantada para @João:*
      Você não é um bug, você é uma feature que eu sempre quis ter no meu código!
+```
+
+#### Comando !historia
+- ✅ **Histórias geradas por IA** - Usa Gemini para criar histórias criativas e envolventes
+- ✅ **Múltiplos gêneros** - Suporta terror, comédia, romance, aventura, ficção científica, etc.
+- ✅ **Histórias completas** - Começo, meio e fim (5-10 parágrafos)
+- ✅ **Conteúdo adequado** - Apropriado para todos os públicos
+- ✅ **Criativas e variadas** - Cada história é única e gerada dinamicamente
+- ✅ **Fácil de usar** - Apenas digite !historia [tipo]
+
+**Como usar:**
+1. Digite: `!historia [tipo]`
+2. O bot gerará uma história do gênero especificado
+3. Se não especificar o tipo, usará "aventura" como padrão
+
+**Tipos de história suportados:**
+- `!historia terror` - História de terror e suspense
+- `!historia comedia` - História de comédia
+- `!historia romance` - História romântica
+- `!historia aventura` - História de aventura
+- `!historia ficcao` - História de ficção científica
+- `!historia [qualquer tipo]` - O bot criará uma história do tipo especificado
+
+**Exemplo:**
+```
+João: !historia terror
+Bot: 📖 *História de Terror:*
+     [História completa de terror gerada pela IA]
+
+Maria: !historia comedia
+Bot: 📖 *História de Comedia:*
+     [História completa de comédia gerada pela IA]
+
+João: !historia
+Bot: 📖 *História de Aventura:*
+     [História de aventura (padrão) gerada pela IA]
 ```
 
 #### Características dos Comandos
