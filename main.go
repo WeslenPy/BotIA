@@ -206,8 +206,11 @@ func (c *ChatContext) LoadMessages(ctx context.Context, userJID string) ([]ChatM
 	}
 
 	// Inverter para ordem cronológica (mais antiga primeiro)
-	for i, j := 0, len(messages)-1; i < j; i, j = i+1, j-1 {
-		messages[i], messages[j] = messages[j], messages[i]
+	// Verificar se há mensagens antes de inverter
+	if len(messages) > 0 {
+		for i, j := 0, len(messages)-1; i < j; i, j = i+1, j-1 {
+			messages[i], messages[j] = messages[j], messages[i]
+		}
 	}
 
 	return messages, nil
@@ -240,8 +243,11 @@ func (c *ChatContext) LoadGroupMessages(ctx context.Context, groupJID string, ma
 	}
 
 	// Inverter para ordem cronológica (mais antiga primeiro)
-	for i, j := 0, len(messages)-1; i < j; i, j = i-1, j-1 {
-		messages[i], messages[j] = messages[j], messages[i]
+	// Verificar se há mensagens antes de inverter
+	if len(messages) > 0 {
+		for i, j := 0, len(messages)-1; i < j; i, j = i+1, j-1 {
+			messages[i], messages[j] = messages[j], messages[i]
+		}
 	}
 
 	return messages, nil

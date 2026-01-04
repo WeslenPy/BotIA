@@ -103,6 +103,7 @@ O bot inclui um sistema de comandos especiais para grupos, iniciado com `!`:
 - **!beijo @usuario** - Dar um beijo virtual em alguém com GIF aleatório
 - **!abraco @usuario** - Dar um abraço virtual em alguém com GIF aleatório
 - **!piada** - Contar uma piada gerada por IA (requer Gemini configurado, evita repetições)
+- **!cantada @usuario** - Gerar uma cantada para alguém usando IA (requer Gemini configurado)
 - **!explique** - Explicar uma mensagem marcada (marque uma mensagem e digite !explique)
 - **!help** ou **!ajuda** - Mostrar lista de comandos disponíveis
 
@@ -114,6 +115,7 @@ O bot inclui um sistema de comandos especiais para grupos, iniciado com `!`:
 !beijo @amigo       # Dar um beijo no @amigo
 !abraco @amigo      # Dar um abraço no @amigo
 !piada              # Contar uma piada gerada por IA
+!cantada @amigo     # Gerar uma cantada para @amigo
 !explique           # Marque uma mensagem e digite !explique
 !help              # Ver lista de comandos
 ```
@@ -132,10 +134,20 @@ João: !piada
 Bot: 😄 *Piada:*
      [Piada gerada pela IA do Gemini]
 
+João: !cantada @Maria
+Bot: 💕 *Cantada para @Maria:*
+     [Cantada criativa gerada pela IA do Gemini]
+
 Maria: "A implementação do algoritmo de busca binária otimiza a complexidade temporal"
 João: [Marca a mensagem] !explique
 Bot: 💡 *Explicação:*
      [Explicação simples gerada pela IA]
+
+João: @DuckerIA como funciona a busca binária?
+Bot: 🤖 [Resposta gerada pela IA do Gemini explicando busca binária]
+
+Maria: [Cita uma mensagem anterior do bot] você pode explicar melhor?
+Bot: 🤖 [Resposta gerada pela IA do Gemini]
 
 # GIF é enviado como arquivo anexado do WhatsApp
 # *@Maria* é uma menção clicável que notifica o usuário
@@ -143,6 +155,7 @@ Bot: 💡 *Explicação:*
 # Piadas são geradas dinamicamente pela IA
 # Sistema de histórico evita repetições
 # !explique explica mensagens marcadas de forma simples
+# Menções automáticas ativam respostas da IA sem comandos
 ```
 
 #### Sistema de Histórico de Piadas
@@ -151,6 +164,44 @@ Bot: 💡 *Explicação:*
 - ✅ **Geração inteligente** - Gemini cria piadas novas e diferentes
 - ✅ **Banco de dados** - Tabela `jokes_history` armazena todas as piadas
 - ✅ **Limpeza automática** - Sistema pode ser expandido para limpar piadas antigas
+
+#### Sistema de Menções e Respostas Automáticas em Grupos
+- ✅ **Resposta automática a menções** - Quando mencionado (@bot), responde com IA
+- ✅ **Resposta a citações** - Quando uma mensagem do bot é citada, responde com IA
+- ✅ **Funciona sem comandos** - Não precisa usar "!" para ativar
+- ✅ **Ignora RequireMention** - Menções sempre processam, mesmo com RequireMention ativo
+- ✅ **Detecção inteligente** - Detecta menções em texto, imagens e vídeos
+- ✅ **Múltiplos nomes** - Reconhece: ducker, duckeria, botia, bot
+
+**Como funciona:**
+- Mencione o bot em uma mensagem: `@DuckerIA como funciona isso?`
+- Cite uma mensagem do bot e escreva algo
+- O bot detecta automaticamente e responde usando a IA do Gemini
+
+#### Prompt Exclusivo para Grupos
+- ✅ **Descontraído e interativo** - Tom amigável e participativo
+- ✅ **Engajado nas conversas** - Faz perguntas e participa ativamente
+- ✅ **Linguagem natural** - Conversacional e acessível
+- ✅ **Expressões maranhenses** - Usa ocasionalmente (visse, rapaz/moça, tranquilo, beleza)
+- ✅ **Contexto do grupo** - Considera histórico de mensagens anteriores
+- ✅ **Personalidade própria** - Não é apenas um assistente, é parte do grupo
+
+**Características do prompt:**
+- Respostas curtas e diretas (máximo 2000 caracteres)
+- Participa ativamente das discussões
+- Reconhece participantes pelo nome quando relevante
+- Faz comentários relevantes e interessantes
+- Mantém tom leve e descontraído
+- Não usa emojis (mas pode mencionar sentimentos textualmente)
+
+**Exemplo de interação:**
+```
+João: @DuckerIA qual a melhor linguagem para iniciantes?
+Bot: 🤖 Para iniciantes, recomendo Python, rapaz! É simples, tem uma sintaxe clara e uma comunidade enorme. Você já tem alguma experiência com programação ou está começando do zero?
+
+Maria: Estou começando do zero
+Bot: 🤖 Perfeito! Python é ideal então. Quer que eu te ajude a montar um plano de estudos? Posso sugerir alguns recursos legais.
+```
 
 #### Comando !explique
 - ✅ **Explicação inteligente** - Usa Gemini para explicar mensagens marcadas
@@ -173,6 +224,31 @@ Bot: 💡 *Explicação:*
      A busca binária é um método eficiente de encontrar algo em uma lista ordenada, 
      dividindo a busca pela metade a cada tentativa, tornando muito mais rápido 
      do que procurar item por item.
+```
+
+#### Comando !cantada
+- ✅ **Cantadas geradas por IA** - Usa Gemini para criar cantadas criativas e engraçadas
+- ✅ **Funciona em grupos** - Disponível para uso em grupos
+- ✅ **Menção automática** - Menciona o usuário alvo de forma clicável
+- ✅ **Cantadas adequadas** - Conteúdo apropriado para todos os públicos
+- ✅ **Criativas e variadas** - Cada cantada é única e gerada dinamicamente
+- ✅ **Fácil de usar** - Apenas digite !cantada @usuario
+
+**Como usar:**
+1. Digite: `!cantada @usuario`
+2. O bot gerará uma cantada criativa usando IA
+3. A cantada será enviada com menção ao usuário mencionado
+
+**Exemplo:**
+```
+João: !cantada @Maria
+Bot: 💕 *Cantada para @Maria:*
+     Se você fosse um algoritmo, seria o mais eficiente do mundo, 
+     porque você otimiza meu coração em tempo constante!
+
+Maria: !cantada @João
+Bot: 💕 *Cantada para @João:*
+     Você não é um bug, você é uma feature que eu sempre quis ter no meu código!
 ```
 
 #### Características dos Comandos

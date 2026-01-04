@@ -48,6 +48,8 @@ func (ch *CommandHandler) ProcessCommand(ctx context.Context, command string, ar
 		return ch.handleAbracoCommand(ctx, args, evt, bot)
 	case "piada":
 		return ch.handlePiadaCommand(ctx, evt, bot)
+	case "cantada":
+		return ch.handleCantadaCommand(ctx, args, evt, bot)
 	case "help", "ajuda":
 		return ch.handleHelpCommand(ctx, evt, bot)
 	default:
@@ -231,6 +233,119 @@ Requisitos:
 	return nil
 }
 
+// handleCantadaCommand processa o comando !cantada
+func (ch *CommandHandler) handleCantadaCommand(ctx context.Context, args []string, evt *events.Message, bot *BotClient) error {
+	// Verificar se o cliente Gemini está configurado
+	if bot.geminiClient == nil {
+		errorMsg := "❌ Gemini não está configurado. Configure a API key para usar este comando."
+		msg := &waProto.Message{
+			Conversation: &errorMsg,
+		}
+		_, err := bot.WAClient.SendMessage(ctx, evt.Info.Chat, msg)
+		return err
+	}
+
+	// Verificar se há um usuário mencionado
+	if len(args) == 0 {
+		errorMsg := "❌ Use: !cantada @usuario\nExemplo: !cantada @johndoe"
+		msg := &waProto.Message{
+			Conversation: &errorMsg,
+		}
+		_, err := bot.WAClient.SendMessage(ctx, evt.Info.Chat, msg)
+		return err
+	}
+
+	// Extrair informações da menção
+	targetMention := args[0]
+	var targetJID string
+	var targetName string
+
+	if strings.HasPrefix(targetMention, "@") {
+		targetJID, targetName = ch.extractMentionInfo(targetMention, evt)
+	} else {
+		targetName = targetMention
+	}
+
+	// Enviar evento de "digitando"
+	errTyping := bot.WAClient.SendChatPresence(ctx, evt.Info.Chat, types.ChatPresenceComposing, types.ChatPresenceMediaText)
+	if errTyping != nil {
+		log.Warn().Err(errTyping).Msg("Erro ao enviar status de digitando")
+	}
+
+	// Criar prompt para gerar cantada
+	prompt := `Você é um especialista em criar cantadas criativas e engraçadas em português brasileiro.
+
+Crie uma cantada 
+
+Requisitos:
+- A cantada deve ser criativa e engraçada
+- Deve ser adequada para todos os públicos (sem conteúdo ofensivo ou inapropriado)
+- Use linguagem natural e descontraída
+- Pode ser romântica, engraçada ou criativa
+- Máximo de 3-4 frases
+- NÃO use emojis
+- Responda APENAS com a cantada, sem explicações ou comentários adicionais
+- A cantada deve ser direcionada à pessoa mencionada
+
+Crie a cantada agora:`
+
+	log.Info().
+		Str("target", targetName).
+		Str("targetJID", targetJID).
+		Msg("Gerando cantada com Gemini")
+
+	// Gerar cantada usando a API do Gemini
+	cantada, err := bot.geminiClient.GenerateContent(ctx, prompt)
+	if err != nil {
+		log.Error().Err(err).Msg("Erro ao gerar cantada com Gemini")
+
+		// Encerrar status de digitando
+		bot.WAClient.SendChatPresence(ctx, evt.Info.Chat, types.ChatPresencePaused, types.ChatPresenceMediaText)
+
+		// Informar erro ao usuário
+		errorMsg := "❌ Erro ao gerar cantada. Tente novamente mais tarde."
+		msg := &waProto.Message{
+			Conversation: &errorMsg,
+		}
+		_, err := bot.WAClient.SendMessage(ctx, evt.Info.Chat, msg)
+		return err
+	}
+
+	// Limitar tamanho da cantada
+	if len(cantada) > 500 {
+		cantada = cantada[:500] + "..."
+	}
+
+	// Encerrar status de digitando
+	bot.WAClient.SendChatPresence(ctx, evt.Info.Chat, types.ChatPresencePaused, types.ChatPresenceMediaText)
+
+	// Enviar cantada gerada com menção ao usuário
+	cantadaMsg := fmt.Sprintf("💕 *Cantada para @%s:*\n\n%s", targetName, cantada)
+
+	// Se temos o JID, enviar com menção clicável
+	if targetJID != "" {
+		err = ch.sendMentionMessage(ctx, cantadaMsg, targetJID, evt, bot)
+	} else {
+		// Fallback: enviar sem menção clicável
+		msg := &waProto.Message{
+			Conversation: &cantadaMsg,
+		}
+		_, err = bot.WAClient.SendMessage(ctx, evt.Info.Chat, msg)
+	}
+
+	if err != nil {
+		log.Error().Err(err).Msg("Erro ao enviar cantada")
+		return err
+	}
+
+	log.Info().
+		Int("length", len(cantada)).
+		Str("target", targetName).
+		Msg("Cantada enviada com sucesso")
+
+	return nil
+}
+
 // extractMentionInfo extrai informações de menção de uma mensagem
 func (ch *CommandHandler) extractMentionInfo(mentionText string, evt *events.Message) (string, string) {
 	// Verificar se há informações de contexto da mensagem
@@ -265,6 +380,7 @@ func (ch *CommandHandler) handleHelpCommand(ctx context.Context, evt *events.Mes
 • *!beijo @usuario* - Dar um beijo virtual em alguém com GIF
 • *!abraco @usuario* - Dar um abraço virtual em alguém com GIF
 • *!piada* - Contar uma piada gerada por IA
+• *!cantada @usuario* - Gerar uma cantada para alguém usando IA
 • *!explique* - Explicar uma mensagem marcada (marque uma mensagem e digite !explique)
 • *!help* ou *!ajuda* - Mostrar esta lista de comandos
 
@@ -274,6 +390,7 @@ _Exemplos:_
 • !beijo @amigo
 • !abraco @amigo
 • !piada
+• !cantada @amigo
 • Marque uma mensagem e digite: !explique
 • !help`
 
@@ -620,7 +737,7 @@ func (gmp *GroupMessageProcessor) ProcessGroupMessage(ctx context.Context, evt *
 			Bool("mentioned", botMentioned).
 			Bool("quoted", botQuoted).
 			Msg("Bot mencionado ou citado, processando com IA")
-		
+
 		return gmp.processWithAI(ctx, evt, msgText, rules)
 	}
 
@@ -637,7 +754,7 @@ func (gmp *GroupMessageProcessor) ProcessGroupMessage(ctx context.Context, evt *
 		Str("group", groupJID).
 		Str("user", evt.Info.Sender.String()).
 		Msg("Processando mensagem com IA (RequireMention desativado)")
-	
+
 	return gmp.processWithAI(ctx, evt, msgText, rules)
 }
 
@@ -753,8 +870,8 @@ func (gmp *GroupMessageProcessor) isMentioned(evt *events.Message, msgText strin
 	botNames := []string{"ducker", "duckeria", "botia", "bot"}
 	msgTextLower := strings.ToLower(msgText)
 	for _, botName := range botNames {
-		if strings.Contains(msgTextLower, "@"+botName) || 
-		   (strings.Contains(msgTextLower, botName) && len(msgText) < 100) { // Evitar falsos positivos em textos longos
+		if strings.Contains(msgTextLower, "@"+botName) ||
+			(strings.Contains(msgTextLower, botName) && len(msgText) < 100) { // Evitar falsos positivos em textos longos
 			return true
 		}
 	}
@@ -894,36 +1011,55 @@ func (gmp *GroupMessageProcessor) processWithAI(ctx context.Context, evt *events
 func (gmp *GroupMessageProcessor) createGroupPrompt(rules *GroupRules, history []ChatMessage, userMessage, userName string) string {
 	systemPrompt := rules.CustomPrompt
 	if systemPrompt == "" {
-		// Prompt padrão para grupos
-		systemPrompt = `Você é o DuckerIA, assistente virtual da Hyper Ducker em um grupo de WhatsApp.
+		// Prompt padrão para grupos - descontraído e interativo
+		systemPrompt = `Você é o DuckerIA, o assistente virtual da Hyper Ducker participando de um grupo de WhatsApp.
 
-## Sua Identidade em Grupos
-- Você está participando de uma conversa em grupo
-- Seja mais conciso e direto que em chats privados
-- Responda apenas quando for relevante ou quando mencionado
-- Mantenha um tom amigável mas profissional
+## Sua Personalidade em Grupos
+- Você é descontraído, animado e interativo com os participantes
+- Gosta de conversar e se envolver nas discussões do grupo
+- Mantém um tom amigável, leve e acessível
+- Você é parte do grupo, não apenas um assistente distante
+- Use expressões naturais e coloquiais quando apropriado
 
-## Comportamento em Grupos
-- Responda de forma objetiva e útil
-- Evite respostas muito longas (máximo 2000 caracteres)
-- Seja respeitoso com todos os membros
-- Não faça spam ou respostas desnecessárias
-- Foque em ajudar com dúvidas sobre desenvolvimento de apps
+## Como Interagir com o Grupo
+- Seja participativo e engajado nas conversas
+- Faça perguntas de volta para manter a interação
+- Compartilhe conhecimento de forma descontraída
+- Quando alguém mencionar você ou fizer uma pergunta, responda de forma calorosa
+- Seja útil mas também divertido - grupos são para interação social
+- Reconheça outros participantes pelo nome quando relevante
+- Adicione comentários relevantes e interessantes à conversa
+
+## Estilo de Comunicação
+- Respostas curtas e diretas (máximo 2000 caracteres)
+- Linguagem natural e conversacional
+- Pode usar expressões maranhenses ocasionalmente (visse, rapaz/moça, tranquilo, beleza)
+- Seja empático e mostre interesse genuíno nas conversas
+- Quando apropriado, faça piadas leves ou comentários descontraídos
+- NÃO use emojis (mas pode mencionar sentimentos de forma textual)
+
+## Sobre a Hyper Ducker
+- Empresa de tecnologia do Maranhão
+- Especializada em desenvolvimento de aplicativos web
+- Você representa a empresa mas de forma descontraída em grupos
+- Pode falar sobre tecnologia, desenvolvimento, apps, etc.
+- No momento não estão comercializando, apenas conversando
 
 ## Regras Importantes
-- NÃO use emojis
-- Seja direto ao ponto
-- Responda apenas se for mencionado ou se a pergunta for claramente direcionada a você
-- Mantenha a conversa produtiva
+- Seja respeitoso com todos os membros
+- Não seja muito formal ou robótico
+- Mantenha a conversa fluindo naturalmente
+- Se não souber algo, seja honesto e descontraído sobre isso
+- Participe ativamente, não apenas responda quando perguntado
 
 ## Contexto da Conversa
-A conversa atual do grupo está abaixo:`
+A conversa atual do grupo está abaixo. Use esse contexto para entender o que está acontecendo e responder de forma relevante e interativa:`
 	}
 
 	// Formatar histórico do grupo
 	conversationHistory := FormatConversationHistory(history)
 
-	return fmt.Sprintf("%s\n\n%s\n\n**%s:** %s\n\nResponda de forma útil e concisa, considerando o contexto do grupo.",
+	return fmt.Sprintf("%s\n\n%s\n\n**%s:** %s\n\nResponda de forma descontraída, interativa e engajada, considerando o contexto da conversa do grupo. Seja natural e participe da discussão!",
 		systemPrompt, conversationHistory, userName, userMessage)
 }
 
