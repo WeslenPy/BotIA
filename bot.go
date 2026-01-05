@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"go.mau.fi/whatsmeow"
 	waProto "go.mau.fi/whatsmeow/binary/proto"
@@ -586,6 +587,50 @@ func (ch *CommandHandler) handleAutodestruicaoCommand(ctx context.Context, args 
 	return nil
 }
 
+// getParticipantName tenta obter o nome do participante de todas as formas possíveis
+func (ch *CommandHandler) getParticipantName(ctx context.Context, jid types.JID, bot *BotClient) string {
+	// Tentar obter o nome do contato do store
+	contact, err := bot.WAClient.Store.Contacts.GetContact(ctx, jid)
+	if err == nil {
+		// Priorizar FullName
+		if contact.FullName != "" {
+			return contact.FullName
+		}
+		// Se não tiver FullName, usar PushName
+		if contact.PushName != "" {
+			return contact.PushName
+		}
+	}
+
+	// Se não conseguiu obter do store, retornar string vazia
+	// (não usar JID.User para evitar mostrar números)
+	return ""
+}
+
+// isOnlyNumber verifica se a string contém apenas números
+func (ch *CommandHandler) isOnlyNumber(s string) bool {
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return len(s) > 0
+}
+
+// removeSpecialChars remove emojis e caracteres especiais, mantendo apenas letras, números, espaços e acentos
+func (ch *CommandHandler) removeSpecialChars(s string) string {
+	var result strings.Builder
+	for _, r := range s {
+		// Manter letras (incluindo acentos), números, espaços e alguns caracteres básicos
+		if unicode.IsLetter(r) || unicode.IsNumber(r) || unicode.IsSpace(r) ||
+			r == '-' || r == '_' || r == '.' || r == ',' || r == '!' || r == '?' {
+			result.WriteRune(r)
+		}
+		// Ignorar emojis e outros caracteres especiais
+	}
+	return strings.TrimSpace(result.String())
+}
+
 // handleRoletaCasaisCommand processa o comando de roleta dos casais
 func (ch *CommandHandler) handleRoletaCasaisCommand(ctx context.Context, evt *events.Message, bot *BotClient) error {
 	// Verificar se é um grupo
@@ -619,18 +664,12 @@ func (ch *CommandHandler) handleRoletaCasaisCommand(ctx context.Context, evt *ev
 		participantJID := participant.JID.ToNonAD().String()
 		// Excluir o bot da lista
 		if participantJID != botJID {
-			// Obter nome do participante - usar o nome do contato se disponível, senão usar o número
-			name := participant.JID.User
-			// Tentar obter o nome do contato do store
-			contact, err := bot.WAClient.Store.Contacts.GetContact(ctx, participant.JID)
-			if err == nil {
-				if contact.FullName != "" {
-					name = contact.FullName
-				} else if contact.PushName != "" {
-					name = contact.PushName
-				}
+			// Obter nome do participante - sempre tentar usar o nome, nunca o JID
+			name := ch.getParticipantName(ctx, participant.JID, bot)
+			// Só adicionar se tiver um nome válido (não vazio e não é apenas número)
+			if name != "" && !ch.isOnlyNumber(name) {
+				participants = append(participants, name)
 			}
-			participants = append(participants, name)
 		}
 	}
 
@@ -649,14 +688,14 @@ func (ch *CommandHandler) handleRoletaCasaisCommand(ctx context.Context, evt *ev
 
 	// Selecionar primeiro membro aleatório
 	index1 := rand.Intn(len(participants))
-	membro1 := participants[index1]
+	membro1 := ch.removeSpecialChars(participants[index1])
 
 	// Selecionar segundo membro aleatório (diferente do primeiro)
 	index2 := rand.Intn(len(participants))
 	for index2 == index1 {
 		index2 = rand.Intn(len(participants))
 	}
-	membro2 := participants[index2]
+	membro2 := ch.removeSpecialChars(participants[index2])
 
 	// Formar mensagem com o casal
 	resultMsg := fmt.Sprintf("💕 *ROleta DOS CASAIS*\n\n💑 *%s* e *%s*", membro1, membro2)
