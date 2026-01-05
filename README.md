@@ -373,18 +373,6 @@ BotIA/
 - `-geminikey`: API Key do Gemini (opcional, pode usar GEMINI_API_KEY env var)
 - `-geminimodel`: Modelo Gemini a usar (padrão: gemini-2.5-flash)
 
-## Diferenças do Projeto Wago
-
-Esta versão simplificada **não inclui**:
-- ❌ Rotas HTTP/API REST
-- ❌ Webhooks
-- ❌ WebSocket
-- ❌ Múltiplos usuários/clientes
-- ❌ Interface web
-- ❌ Download automático de mídias
-
-**Foco**: Apenas conexão e tratamento básico de eventos do WhatsApp.
-
 ## Aviso
 
 O uso de bibliotecas não oficiais para interagir com o WhatsApp pode violar os Termos de Serviço da plataforma. Utilize com responsabilidade.
