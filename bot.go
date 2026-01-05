@@ -48,6 +48,8 @@ func (ch *CommandHandler) ProcessCommand(ctx context.Context, command string, ar
 		return ch.handleBeijoCommand(ctx, args, evt, bot)
 	case "abraco", "abraço":
 		return ch.handleAbracoCommand(ctx, args, evt, bot)
+	case "tiro":
+		return ch.handleTiroCommand(ctx, args, evt, bot)
 	case "piada":
 		return ch.handlePiadaCommand(ctx, evt, bot)
 	case "cantada":
@@ -142,6 +144,11 @@ func (ch *CommandHandler) handleBeijoCommand(ctx context.Context, args []string,
 // handleAbracoCommand processa o comando !abraco
 func (ch *CommandHandler) handleAbracoCommand(ctx context.Context, args []string, evt *events.Message, bot *BotClient) error {
 	return ch.handleActionCommand(ctx, args, evt, bot, "hug", "deu um abraço em", "🤗", "!abraco @usuario")
+}
+
+// handleTiroCommand processa o comando !tiro
+func (ch *CommandHandler) handleTiroCommand(ctx context.Context, args []string, evt *events.Message, bot *BotClient) error {
+	return ch.handleActionCommand(ctx, args, evt, bot, "shot", "atirou em", "🔫", "!tiro @usuario")
 }
 
 // handlePiadaCommand processa o comando !piada
@@ -727,6 +734,7 @@ func (ch *CommandHandler) handleHelpCommand(ctx context.Context, evt *events.Mes
 • *!voadora @usuario* - Dar uma voadora virtual em alguém com GIF
 • *!beijo @usuario* - Dar um beijo virtual em alguém com GIF
 • *!abraco @usuario* - Dar um abraço virtual em alguém com GIF
+• *!tiro @usuario* - Atirar virtualmente em alguém com GIF
 • *!piada* - Contar uma piada gerada por IA
 • *!cantada @usuario* - Gerar uma cantada para alguém usando IA
 • *!historia [tipo]* - Gerar uma história usando IA (ex: !historia terror, !historia comedia)
@@ -740,6 +748,7 @@ _Exemplos:_
 • !chute @amigo
 • !beijo @amigo
 • !abraco @amigo
+• !tiro @amigo
 • !piada
 • !cantada @amigo
 • !historia terror
