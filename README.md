@@ -1,7 +1,5 @@
 # BotIA - Bot WhatsApp Simplificado
 
-Versão simplificada do projeto wago, focada apenas na conexão e tratamento de eventos do WhatsApp, sem rotas HTTP/API.
-
 ## Características
 
 - ✅ Conexão ao WhatsApp via whatsmeow
@@ -9,7 +7,6 @@ Versão simplificada do projeto wago, focada apenas na conexão e tratamento de 
 - ✅ Tratamento de eventos (mensagens, presença, recebimentos, etc.)
 - ✅ Armazenamento de sessão em SQLite
 - ✅ Logging configurável (console ou JSON)
-- ❌ Sem rotas HTTP/API (versão simplificada)
 
 ## Pré-requisitos
 
