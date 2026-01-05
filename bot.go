@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -52,7 +53,11 @@ func (ch *CommandHandler) ProcessCommand(ctx context.Context, command string, ar
 		return ch.handleCantadaCommand(ctx, args, evt, bot)
 	case "historia", "história":
 		return ch.handleHistoriaCommand(ctx, args, evt, bot)
-	case "help", "ajuda":
+	case "autodestruicao", "autodestruição":
+		return ch.handleAutodestruicaoCommand(ctx, args, evt, bot)
+	case "roletacasais", "roleta", "casais":
+		return ch.handleRoletaCasaisCommand(ctx, evt, bot)
+	case "help", "ajuda", "menu":
 		return ch.handleHelpCommand(ctx, evt, bot)
 	default:
 		// Comando não reconhecido
@@ -466,6 +471,214 @@ func (ch *CommandHandler) extractMentionInfo(mentionText string, evt *events.Mes
 	return targetJID, targetName
 }
 
+// handleAutodestruicaoCommand processa o comando de auto-destruição
+func (ch *CommandHandler) handleAutodestruicaoCommand(ctx context.Context, args []string, evt *events.Message, bot *BotClient) error {
+	// Verificar se é um grupo
+	if evt.Info.Chat.Server != "g.us" {
+		errorMsg := "❌ Este comando só funciona em grupos!"
+		msg := &waProto.Message{
+			Conversation: &errorMsg,
+		}
+		_, err := bot.WAClient.SendMessage(ctx, evt.Info.Chat, msg)
+		return err
+	}
+
+	// Parsear minutos (padrão: 5 minutos)
+	minutes := 5
+	if len(args) > 0 {
+		parsedMinutes, err := strconv.Atoi(args[0])
+		if err == nil && parsedMinutes > 0 {
+			minutes = parsedMinutes
+		}
+	}
+
+	// Validar limites (1 a 60 minutos)
+	if minutes < 1 {
+		minutes = 1
+	}
+	if minutes > 60 {
+		minutes = 60
+	}
+
+	groupJID := evt.Info.Chat.String()
+	groupProcessor := bot.groupProcessor
+
+	// Verificar se já está pausado
+	rules := groupProcessor.GetGroupRules(groupJID)
+	if rules.IsPaused && time.Now().Before(rules.PausedUntil) {
+		remaining := time.Until(rules.PausedUntil)
+		remainingMinutes := int(remaining.Minutes())
+		if remainingMinutes < 1 {
+			remainingMinutes = 1
+		}
+		errorMsg := fmt.Sprintf("⚠️ Bot já está pausado! Reativa em %d minuto(s).", remainingMinutes)
+		msg := &waProto.Message{
+			Conversation: &errorMsg,
+		}
+		_, err := bot.WAClient.SendMessage(ctx, evt.Info.Chat, msg)
+		return err
+	}
+
+	// Mensagem inicial
+	initMsg := fmt.Sprintf("⚠️ *AUTO-DESTRUIÇÃO ATIVADA*\n\nBot será pausado por *%d minuto(s)*.\n\nIniciando countdown de 5 segundos...", minutes)
+	msg := &waProto.Message{
+		Conversation: &initMsg,
+	}
+	_, err := bot.WAClient.SendMessage(ctx, evt.Info.Chat, msg)
+	if err != nil {
+		log.Error().Err(err).Msg("Erro ao enviar mensagem inicial de auto-destruição")
+	}
+
+	// Iniciar countdown de 5 segundos em goroutine
+	go func() {
+		ctx := context.Background()
+
+		// Countdown de 5 segundos com emoji de explosão
+		for i := 5; i > 0; i-- {
+			time.Sleep(1 * time.Second)
+			countdownMsg := fmt.Sprintf("💥 %d", i)
+			msg := &waProto.Message{
+				Conversation: &countdownMsg,
+			}
+			_, err := bot.WAClient.SendMessage(ctx, evt.Info.Chat, msg)
+			if err != nil {
+				log.Error().Err(err).Int("countdown", i).Msg("Erro ao enviar mensagem de countdown")
+			}
+		}
+
+		// Pausar o bot após o countdown
+		duration := time.Duration(minutes) * time.Minute
+		groupProcessor.PauseGroup(groupJID, duration)
+
+		// Mensagem de pausa ativada
+		pauseMsg := "💥 *Bot pausado!*\n\nBot ficará inativo por um período."
+		msg = &waProto.Message{
+			Conversation: &pauseMsg,
+		}
+		_, err = bot.WAClient.SendMessage(ctx, evt.Info.Chat, msg)
+		if err != nil {
+			log.Error().Err(err).Msg("Erro ao enviar mensagem de pausa")
+		}
+
+		// Aguardar o tempo de pausa
+		time.Sleep(duration)
+
+		// Verificar se ainda está pausado antes de reativar
+		rules := groupProcessor.GetGroupRules(groupJID)
+		if rules.IsPaused && time.Now().After(rules.PausedUntil) {
+			// Reativar o bot
+			groupProcessor.UnpauseGroup(groupJID)
+
+			// Mensagem final
+			finalMsg := "✅ *Bot reativado!*\n\nAuto-destruição concluída. Bot está funcionando normalmente novamente."
+			msg = &waProto.Message{
+				Conversation: &finalMsg,
+			}
+			_, err = bot.WAClient.SendMessage(ctx, evt.Info.Chat, msg)
+			if err != nil {
+				log.Error().Err(err).Msg("Erro ao enviar mensagem final de reativação")
+			}
+
+			log.Info().Str("group", groupJID).Msg("Auto-destruição concluída, bot reativado")
+		}
+	}()
+
+	return nil
+}
+
+// handleRoletaCasaisCommand processa o comando de roleta dos casais
+func (ch *CommandHandler) handleRoletaCasaisCommand(ctx context.Context, evt *events.Message, bot *BotClient) error {
+	// Verificar se é um grupo
+	if evt.Info.Chat.Server != "g.us" {
+		errorMsg := "❌ Este comando só funciona em grupos!"
+		msg := &waProto.Message{
+			Conversation: &errorMsg,
+		}
+		_, err := bot.WAClient.SendMessage(ctx, evt.Info.Chat, msg)
+		return err
+	}
+
+	// Obter informações do grupo
+	groupJID := evt.Info.Chat
+	groupInfo, err := bot.WAClient.GetGroupInfo(ctx, groupJID)
+	if err != nil {
+		log.Error().Err(err).Str("group", groupJID.String()).Msg("Erro ao obter informações do grupo")
+		errorMsg := "❌ Erro ao obter informações do grupo."
+		msg := &waProto.Message{
+			Conversation: &errorMsg,
+		}
+		_, err := bot.WAClient.SendMessage(ctx, evt.Info.Chat, msg)
+		return err
+	}
+
+	// Obter lista de participantes (excluindo o bot)
+	participants := []string{}
+	botJID := bot.WAClient.Store.ID.ToNonAD().String()
+
+	for _, participant := range groupInfo.Participants {
+		participantJID := participant.JID.ToNonAD().String()
+		// Excluir o bot da lista
+		if participantJID != botJID {
+			// Obter nome do participante - usar o nome do contato se disponível, senão usar o número
+			name := participant.JID.User
+			// Tentar obter o nome do contato do store
+			contact, err := bot.WAClient.Store.Contacts.GetContact(ctx, participant.JID)
+			if err == nil {
+				if contact.FullName != "" {
+					name = contact.FullName
+				} else if contact.PushName != "" {
+					name = contact.PushName
+				}
+			}
+			participants = append(participants, name)
+		}
+	}
+
+	// Verificar se há participantes suficientes
+	if len(participants) < 2 {
+		errorMsg := "❌ É necessário pelo menos 2 membros no grupo para formar um casal!"
+		msg := &waProto.Message{
+			Conversation: &errorMsg,
+		}
+		_, err := bot.WAClient.SendMessage(ctx, evt.Info.Chat, msg)
+		return err
+	}
+
+	// Selecionar 2 membros aleatórios para formar um casal
+	rand.Seed(time.Now().UnixNano())
+
+	// Selecionar primeiro membro aleatório
+	index1 := rand.Intn(len(participants))
+	membro1 := participants[index1]
+
+	// Selecionar segundo membro aleatório (diferente do primeiro)
+	index2 := rand.Intn(len(participants))
+	for index2 == index1 {
+		index2 = rand.Intn(len(participants))
+	}
+	membro2 := participants[index2]
+
+	// Formar mensagem com o casal
+	resultMsg := fmt.Sprintf("💕 *ROleta DOS CASAIS*\n\n💑 *%s* e *%s*", membro1, membro2)
+
+	msg := &waProto.Message{
+		Conversation: &resultMsg,
+	}
+	_, err = bot.WAClient.SendMessage(ctx, evt.Info.Chat, msg)
+	if err != nil {
+		log.Error().Err(err).Msg("Erro ao enviar resultado da roleta dos casais")
+		return err
+	}
+
+	log.Info().
+		Str("group", groupJID.String()).
+		Int("participants", len(participants)).
+		Str("casal", fmt.Sprintf("%s e %s", membro1, membro2)).
+		Msg("Roleta dos casais executada com sucesso")
+
+	return nil
+}
+
 // handleHelpCommand mostra a lista de comandos disponíveis
 func (ch *CommandHandler) handleHelpCommand(ctx context.Context, evt *events.Message, bot *BotClient) error {
 	helpMsg := `*🤖 Comandos Disponíveis:*
@@ -479,6 +692,8 @@ func (ch *CommandHandler) handleHelpCommand(ctx context.Context, evt *events.Mes
 • *!cantada @usuario* - Gerar uma cantada para alguém usando IA
 • *!historia [tipo]* - Gerar uma história usando IA (ex: !historia terror, !historia comedia)
 • *!explique* - Explicar uma mensagem marcada (marque uma mensagem e digite !explique)
+• *!autodestruicao [minutos]* - Pausar o bot por X minutos com countdown (padrão: 5 min, máximo: 60 min)
+• *!roletacasais* ou *!roleta* - Formar casais aleatórios com os membros do grupo
 • *!help* ou *!ajuda* - Mostrar esta lista de comandos
 
 _Exemplos:_
@@ -491,6 +706,8 @@ _Exemplos:_
 • !historia terror
 • !historia comedia
 • Marque uma mensagem e digite: !explique
+• !autodestruicao 10 (pausa por 10 minutos)
+• !roletacasais (forma casais aleatórios)
 • !help`
 
 	msg := &waProto.Message{
@@ -775,6 +992,8 @@ type GroupRules struct {
 	CustomPrompt     string    `json:"custom_prompt"`     // Prompt personalizado para o grupo
 	ResponseCooldown int       `json:"response_cooldown"` // Cooldown entre respostas (segundos)
 	LastResponse     time.Time `json:"last_response"`     // Última resposta enviada
+	IsPaused         bool      `json:"is_paused"`         // Se o bot está pausado no grupo
+	PausedUntil      time.Time `json:"paused_until"`      // Quando a pausa termina
 }
 
 // NewGroupMessageProcessor cria um novo processador de mensagens de grupo
@@ -792,6 +1011,22 @@ func (gmp *GroupMessageProcessor) ProcessGroupMessage(ctx context.Context, evt *
 
 	// Verificar se existem regras para este grupo
 	rules := gmp.getGroupRules(groupJID)
+
+	// Verificar se o bot está pausado (ignora TODAS as funções, incluindo comandos)
+	if rules.IsPaused {
+		// Verificar se a pausa já expirou
+		if time.Now().After(rules.PausedUntil) {
+			rules.IsPaused = false
+			log.Info().Str("group", groupJID).Msg("Pausa expirada, bot reativado")
+		} else {
+			log.Info().
+				Str("group", groupJID).
+				Time("paused_until", rules.PausedUntil).
+				Str("message", msgText).
+				Msg("Bot pausado, ignorando todas as funções (comandos e mensagens)")
+			return nil
+		}
+	}
 
 	// Verificar se é um comando
 	if strings.HasPrefix(msgText, "!") {
@@ -1198,6 +1433,26 @@ func (gmp *GroupMessageProcessor) UnblockUser(groupJID, userJID string) {
 			break
 		}
 	}
+}
+
+// PauseGroup pausa o bot em um grupo por um período determinado
+func (gmp *GroupMessageProcessor) PauseGroup(groupJID string, duration time.Duration) {
+	rules := gmp.getGroupRules(groupJID)
+	rules.IsPaused = true
+	rules.PausedUntil = time.Now().Add(duration)
+	log.Info().
+		Str("group", groupJID).
+		Dur("duration", duration).
+		Time("paused_until", rules.PausedUntil).
+		Msg("Bot pausado no grupo")
+}
+
+// UnpauseGroup remove a pausa do bot em um grupo
+func (gmp *GroupMessageProcessor) UnpauseGroup(groupJID string) {
+	rules := gmp.getGroupRules(groupJID)
+	rules.IsPaused = false
+	rules.PausedUntil = time.Time{}
+	log.Info().Str("group", groupJID).Msg("Bot despausado no grupo")
 }
 
 // EnableAI habilita a IA para um grupo

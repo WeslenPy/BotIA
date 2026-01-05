@@ -106,6 +106,8 @@ O bot inclui um sistema de comandos especiais para grupos, iniciado com `!`:
 - **!cantada @usuario** - Gerar uma cantada para alguém usando IA (requer Gemini configurado)
 - **!historia [tipo]** - Gerar uma história usando IA (ex: !historia terror, !historia comedia) (requer Gemini configurado)
 - **!explique** - Explicar uma mensagem marcada (marque uma mensagem e digite !explique)
+- **!autodestruicao [minutos]** - Pausar o bot por X minutos com countdown (padrão: 5 min, máximo: 60 min, só funciona em grupos)
+- **!roletacasais** ou **!roleta** - Formar casais aleatórios com os membros do grupo (só funciona em grupos)
 - **!help** ou **!ajuda** - Mostrar lista de comandos disponíveis
 
 #### Como Usar
@@ -120,6 +122,8 @@ O bot inclui um sistema de comandos especiais para grupos, iniciado com `!`:
 !historia terror    # Gerar uma história de terror
 !historia comedia   # Gerar uma história de comédia
 !explique           # Marque uma mensagem e digite !explique
+!autodestruicao 10  # Pausar o bot por 10 minutos com countdown (só em grupos)
+!roletacasais       # Formar casais aleatórios com os membros do grupo (só em grupos)
 !help              # Ver lista de comandos
 ```
 
@@ -160,6 +164,25 @@ Bot: 🤖 [Resposta gerada pela IA do Gemini explicando busca binária]
 Maria: [Cita uma mensagem anterior do bot] você pode explicar melhor?
 Bot: 🤖 [Resposta gerada pela IA do Gemini]
 
+João: !autodestruicao 5
+Bot: ⚠️ *AUTO-DESTRUIÇÃO ATIVADA*
+     Bot será pausado por *5 minuto(s)*.
+     Iniciando countdown de 5 segundos...
+     💥 5
+     💥 4
+     💥 3
+     💥 2
+     💥 1
+     💥 *Bot pausado!*
+     Bot ficará inativo por um período.
+     [5 minutos de silêncio...]
+     ✅ *Bot reativado!*
+     Auto-destruição concluída. Bot está funcionando normalmente novamente.
+
+João: !roletacasais
+Bot: 💕 *ROleta DOS CASAIS*
+     💑 *Maria* e *Pedro*
+
 # GIF é enviado como arquivo anexado do WhatsApp
 # *@Maria* é uma menção clicável que notifica o usuário
 # Usuários podem baixar e visualizar o GIF completo
@@ -167,6 +190,74 @@ Bot: 🤖 [Resposta gerada pela IA do Gemini]
 # Sistema de histórico evita repetições
 # !explique explica mensagens marcadas de forma simples
 # Menções automáticas ativam respostas da IA sem comandos
+# !autodestruicao pausa o bot temporariamente com countdown
+# !roletacasais forma casais aleatórios com os membros do grupo
+```
+
+#### Comando !roletacasais
+- ✅ **Formação aleatória de um casal** - Seleciona 2 membros aleatórios e forma um casal
+- ✅ **Apenas em grupos** - Comando só funciona em grupos do WhatsApp
+- ✅ **Exclui o bot** - O bot não participa da roleta
+- ✅ **Aleatório a cada execução** - Cada vez que o comando é executado, forma um casal diferente
+- ✅ **Nomes dos participantes** - Usa os nomes dos contatos quando disponíveis
+
+**Como funciona:**
+- Use `!roletacasais` ou `!roleta` em um grupo
+- O bot obtém a lista de todos os membros do grupo (excluindo o bot)
+- Seleciona aleatoriamente 2 membros diferentes
+- Forma um único casal com esses 2 membros
+- Envia a mensagem com o casal formado
+
+**Requisitos:**
+- Mínimo de 2 membros no grupo (além do bot)
+- Bot deve ter permissões para ver a lista de membros
+
+**Exemplo:**
+```
+João: !roletacasais
+Bot: 💕 *ROleta DOS CASAIS*
+
+     💑 *Maria* e *Pedro*
+
+João: !roletacasais
+Bot: 💕 *ROleta DOS CASAIS*
+
+     💑 *Ana* e *Carlos*
+```
+
+#### Sistema de Auto-Destruição
+- ✅ **Pausa temporária** - Pausa o bot por um período determinado (1-60 minutos)
+- ✅ **Countdown de 5 segundos** - Countdown rápido com emoji de explosão antes da pausa
+- ✅ **Apenas em grupos** - Comando só funciona em grupos do WhatsApp
+- ✅ **Todas as funções pausadas** - Quando pausado, o bot ignora TUDO: comandos, mensagens, menções, etc.
+- ✅ **Reativação automática** - Bot reativa automaticamente após o tempo determinado
+- ✅ **Proteção contra duplicatas** - Não permite ativar auto-destruição se já estiver pausado
+- ✅ **Silencioso durante pausa** - Não envia mensagens durante a pausa, apenas reativa no final
+
+**Como funciona:**
+- Use `!autodestruicao [minutos]` em um grupo (padrão: 5 minutos, máximo: 60 minutos)
+- O bot faz um countdown de 5 segundos com emoji de explosão (💥)
+- Após o countdown, o bot é pausado pelo tempo determinado
+- Durante a pausa, o bot ignora COMPLETAMENTE todas as funções: comandos (!tapa, !piada, etc.), mensagens normais, menções, citações, etc.
+- Não há mensagens durante a pausa
+- Após o tempo determinado, o bot reativa automaticamente com uma mensagem de confirmação
+
+**Exemplo:**
+```
+João: !autodestruicao 10
+Bot: ⚠️ *AUTO-DESTRUIÇÃO ATIVADA*
+     Bot será pausado por *10 minuto(s)*.
+     Iniciando countdown de 5 segundos...
+     💥 5
+     💥 4
+     💥 3
+     💥 2
+     💥 1
+     💥 *Bot pausado!*
+     Bot ficará inativo por um período.
+     [10 minutos de silêncio...]
+     ✅ *Bot reativado!*
+     Auto-destruição concluída. Bot está funcionando normalmente novamente.
 ```
 
 #### Sistema de Histórico de Piadas
